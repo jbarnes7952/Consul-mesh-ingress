@@ -1,0 +1,11 @@
+{
+  "advertise_addr": "10.10.0.8",
+  "advertise_addr_wan": "192.168.5.11",
+  "datacenter": "dc1",
+  "encrypt": "Bz6jxAkOeAW2ADxzHfax5TL4Tvl4Qb0P3oaONibmFgY=",
+  "acl": {
+    "tokens": {
+      "default": ""
+    }
+  }
+}

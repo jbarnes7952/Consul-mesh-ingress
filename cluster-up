@@ -1,0 +1,89 @@
+#!/bin/bash
+
+echo
+echo Building Consul-Envoy image...
+docker build -t consul-envoy ./dkr-consul-envoy
+
+echo
+echo Bringing up DC1....
+docker-compose up -d dc1-consul-server1 dc1-consul-server2 dc1-consul-server3 
+
+echo 
+echo Pausing for Cluster to come up.
+sleep 20 
+
+echo
+echo Bootstrapping and setting CONSUL_HTTP_TOKEN...
+export CONSUL_HTTP_TOKEN=$(consul acl bootstrap | grep Secret | tr -s ' ' | cut -f 2 -d ' ')
+
+echo
+echo Setting up env file at $(pwd)/token.source...
+echo export CONSUL_HTTP_TOKEN=$CONSUL_HTTP_TOKEN > ./token.source
+echo CONSUL_HTTP_TOKEN set to $CONSUL_HTTP_TOKEN
+
+echo
+echo Creating Policies...
+cd ./terraform/policies
+terraform init
+terraform apply -auto-approve
+
+echo
+echo Creating Tokens...
+cd ../tokens
+terraform init
+terraform apply -auto-approve
+
+echo
+echo Setting Tokens in ENV for docker-compose and setting KeyValues for consul-template
+stuff="$(for token in $(jq -r '.resources[].instances[].attributes.accessor_id' terraform.tfstate | grep -v null); \
+  do curl -s --request GET  --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" http://$CONSUL_HTTP_ADDR/v1/acl/token/$token; \
+  done | jq -r '. | select(.Description | startswith("CONSUL_")) | "\(.Description)=\(.SecretID)" ')"
+echo $stuff
+for s in $stuff; do
+	NAME="$(echo "$s" | cut -d '=' -f 1)"
+	TOKEN="$(echo "$s" | cut -d '=' -f 2)"
+	echo export $NAME=$TOKEN >> ../../token.source
+	export $s
+	curl -s --request PUT --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" --data $TOKEN http://$CONSUL_HTTP_ADDR/v1/kv/$NAME
+done
+
+echo
+echo Running consul-template to populate configuration files 
+echo $CONSUL_HTTP_TOKEN
+cd ../../config/shared
+for template in $(ls *.tpl | cut -f 1 -d '.'); do consul-template -template "$template.tpl:$template.json" -once; done
+cd ../..
+
+echo
+echo Bringing up DC2...
+docker-compose up -d dc2-consul-server1 dc2-consul-server2 dc2-consul-server3 
+sleep 20
+
+echo
+echo Restarting DC2 for ACL replication...
+docker stop dc2-consul-server1 dc2-consul-server2 dc2-consul-server3 
+docker-compose up -d dc2-consul-server1 dc2-consul-server2 dc2-consul-server3 
+
+echo 
+echo Pausing for Cluster to come up...
+sleep 20 
+echo
+
+echo
+echo Writing Ingress Gateway config...
+consul config write ingress-gateway.hcl
+echo
+
+echo
+echo Writing Mesh Gateway config...
+consul config write proxy-defaults.hcl
+echo
+echo Writing ANY-/>ANY intention.  You should perhaps change this...
+consul intention create "/*" "/*"
+echo Starting remaining services
+docker-compose up -d
+
+
+echo Clusters are up! Add a license before it dies!
+echo
+echo source ./token.source to set ENV variables

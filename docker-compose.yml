@@ -1,0 +1,354 @@
+version: "3.3"
+services:
+
+######################
+# dc1
+######################
+
+  
+  dc1-consul-server1:
+    container_name: dc1-consul-server1
+    hostname: dc1-consul-server1
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc1/1/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/1:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    ports: 
+      - 8500:8500
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.2
+      wan:
+        ipv4_address: 192.168.5.2
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc1-consul-server2:
+    container_name: dc1-consul-server2
+    hostname: dc1-consul-server2
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc1/2/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/2:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.3
+      wan:
+        ipv4_address: 192.168.5.3
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc1-consul-server3:
+    container_name: dc1-consul-server3
+    hostname: dc1-consul-server3
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc1/3/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/3:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.4
+      wan:
+        ipv4_address: 192.168.5.4
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc1-consul-ingress-gw1:
+    container_name: dc1-consul-ingress-gw1
+    hostname: dc1-consul-ingress-gw1
+    image: consul-envoy 
+    command: sh -c "
+        consul agent -config-file /config/dc1/igw1/config.json -config-file /config/shared/dc1-igw-agent-shared.json
+        & sleep 2
+        && CONSUL_HTTP_TOKEN=${CONSUL_INGRESS_TOKEN} consul connect envoy -gateway=ingress -register -service ingress-service  -address '10.10.0.104:8888'
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/igw1:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    ports: 
+      - 8080:8080
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.104
+      wan:
+        ipv4_address: 192.168.5.104
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+  
+  dc1-consul-gw1:
+    container_name: dc1-consul-gw1
+    hostname: dc1-consul-gw1
+    image: consul-envoy 
+    command: sh -c "
+        consul agent -config-file /config/dc1/gw1/config.json -config-file /config/shared/dc1-mesh-gw-shared.json
+        & sleep 2
+        && CONSUL_HTTP_TOKEN=${CONSUL_MESH_TOKEN} consul connect envoy -gateway=mesh -register -service "mesh-gateway" -address "10.10.0.8:8080" -wan-address "192.168.5.11:8080"
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/gw1:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.8
+      wan:
+        ipv4_address: 192.168.5.11
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+        
+  dc1-consul-dashboard1:
+    container_name: dc1-consul-dashboard1
+    hostname: dc1-consul-dashboard1
+    image: consul-envoy
+    command: sh -c "
+        consul agent -config-file /config/dc1/d1/config.json -config-file /config/shared/dc1-dash-agent-shared.json
+        & PORT=9002 COUNTING_SERVICE_URL="http://localhost:5000" ./services/dashboard-service
+        & sleep 2 
+        && CONSUL_HTTP_TOKEN=${CONSUL_DASH_TOKEN} consul connect envoy -sidecar-for dashboard > dashboard-proxy.log
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/d1:/data"
+      - "./policies:/policies"
+      - "./services:/services"
+    dns: 127.0.0.1
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.101
+      wan:
+        ipv4_address: 192.168.5.101
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc1-consul-dashboard2:
+    container_name: dc1-consul-dashboard2
+    hostname: dc1-consul-dashboard2
+    image: consul-envoy
+    command: sh -c "
+        consul agent -config-file /config/dc1/d2/config.json -config-file /config/shared/dc1-dash-agent-shared.json
+        & PORT=9002 COUNTING_SERVICE_URL="http://localhost:5000" ./services/dashboard-service
+        & sleep 2 
+        && CONSUL_HTTP_TOKEN=${CONSUL_DASH_TOKEN} consul connect envoy -sidecar-for dashboard > dashboard-proxy.log
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc1/d2:/data"
+      - "./policies:/policies"
+      - "./services:/services"
+    dns: 127.0.0.1
+    networks:
+      dc1:
+        ipv4_address: 10.10.0.102
+      wan:
+        ipv4_address: 192.168.5.102
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+
+######################
+# dc2
+######################
+
+  dc2-consul-server1:
+    container_name: dc2-consul-server1
+    hostname: dc2-consul-server1
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc2/1/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+      - -config-file
+      - /config/shared/dc2.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/1:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.2
+      wan:
+        ipv4_address: 192.168.5.5
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc2-consul-server2:
+    container_name: dc2-consul-server2
+    hostname: dc2-consul-server2
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc2/2/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+      - -config-file
+      - /config/shared/dc2.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/2:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.3
+      wan:
+        ipv4_address: 192.168.5.6
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  dc2-consul-server3:
+    container_name: dc2-consul-server3
+    hostname: dc2-consul-server3
+    image: hashicorp/consul-enterprise:1.8.4-ent
+    command:
+      - consul
+      - agent
+      - -config-file
+      - /config/dc2/3/config.json
+      - -config-file
+      - /config/shared/legacy-shared.json
+      - -config-file
+      - /config/shared/dc2.json
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/3:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.4
+      wan:
+        ipv4_address: 192.168.5.7
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+       
+
+  dc2-consul-counting-service1:
+    container_name: dc2-consul-counting-service1
+    hostname: dc2-consul-counting-service1
+    image: consul-envoy
+    command: sh -c "
+        consul agent -config-file /config/dc2/cs1/config.json -config-file /config/shared/dc2-cs-agent-shared.json
+        & ./services/counting-service
+        & sleep 2
+        && CONSUL_HTTP_TOKEN=${CONSUL_COUNTING_TOKEN} consul connect envoy -sidecar-for counting -admin-bind localhost:19001 > counting-proxy.log 
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/cs1:/data"
+      - "./policies:/policies"
+      - "./services:/services"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.203
+      wan:
+        ipv4_address: 192.168.5.203
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+      - PORT=9003
+
+
+  dc2-consul-counting-service2:
+    container_name: dc2-consul-counting-service2
+    hostname: dc2-consul-counting-service2
+    image: consul-envoy
+    command: sh -c "
+        consul agent -config-file /config/dc2/cs2/config.json -config-file /config/shared/dc2-cs-agent-shared.json
+        & ./services/counting-service
+        & sleep 2
+        && CONSUL_HTTP_TOKEN=${CONSUL_COUNTING_TOKEN} consul connect envoy -sidecar-for counting -admin-bind localhost:19001 > counting-proxy.log 
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/cs2:/data"
+      - "./policies:/policies"
+      - "./services:/services"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.205
+      wan:
+        ipv4_address: 192.168.5.205
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+      - PORT=9003
+
+  dc2-consul-gw1:
+    container_name: dc2-consul-gw1
+    hostname: dc2-consul-gw1
+    image: consul-envoy 
+    command: sh -c "
+        CONSUL_HTTP_TOKEN=${CONSUL_AGENT_TOKEN} consul agent -config-file /config/dc2/gw1/config.json -config-file /config/shared/dc2-mesh-gw-shared.json
+        & sleep 2
+        && CONSUL_HTTP_TOKEN=${CONSUL_MESH_TOKEN} consul connect envoy -gateway=mesh -register -service "mesh-gateway" -address "10.11.0.204:8080" -wan-address "192.168.5.204:8080"
+      "
+    volumes:
+      - "./config:/config"
+      - "./data/dc2/gw1:/data"
+      - "./policies:/policies"
+    dns: 127.0.0.1
+    networks:
+      dc2:
+        ipv4_address: 10.11.0.204
+      wan:
+        ipv4_address: 192.168.5.204
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+
+######################
+# networks
+######################
+
+networks:
+  dc1:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.10.0.0/24
+  dc2:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.11.0.0/24
+  wan:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 192.168.5.0/24

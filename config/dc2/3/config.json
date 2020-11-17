@@ -1,0 +1,11 @@
+{
+  "advertise_addr": "10.11.0.4",
+  "advertise_addr_wan": "192.168.5.7",
+  "datacenter": "dc2",
+  "encrypt": "Bz6jxAkOeAW2ADxzHfax5TL4Tvl4Qb0P3oaONibmFgY=",
+  "retry_join": [
+    "10.11.0.2",
+    "10.11.0.3",
+    "10.11.0.4"
+  ]
+}

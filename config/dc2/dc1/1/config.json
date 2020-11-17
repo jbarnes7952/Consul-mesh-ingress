@@ -1,0 +1,13 @@
+{
+  "advertise_addr": "10.10.0.2",
+  "advertise_addr_wan": "192.168.5.2",
+  "datacenter": "dc1",
+  "encrypt": "Bz6jxAkOeAW2ADxzHfax5TL4Tvl4Qb0P3oaONibmFgY=",
+  "retry_join": [
+    "10.10.0.2",
+    "10.10.0.3",
+    "10.10.0.4"
+  ],
+  "raft_snapshot_threshold": 64,
+  "raft_snapshot_interval": "5s"
+}

@@ -1,0 +1,28 @@
+{
+  "advertise_addr": "10.10.0.121",
+  "advertise_addr_wan": "192.168.5.121",
+  "datacenter": "dc1",
+  "encrypt": "Bz6jxAkOeAW2ADxzHfax5TL4Tvl4Qb0P3oaONibmFgY=",
+  "service": {
+    "namespace": "test",
+    "name": "dashboard",
+    "port": 9002,
+    "connect": {
+      "sidecar_service": {
+        "proxy": {
+      	  "upstreams": [{
+      	    "destination_name": "counting",
+      	    "local_bind_port": 5000 
+      	  }]
+      	}
+      }
+    },
+    "check": {
+      "id": "dashboard-check",
+      "http": "http://localhost:9002/health",
+      "method": "GET",
+      "interval": "1s",
+      "timeout": "1s"
+    }
+  }
+}
