@@ -15,6 +15,7 @@ sleep 20
 echo
 echo Bootstrapping and setting CONSUL_HTTP_TOKEN...
 export CONSUL_HTTP_TOKEN=$(consul acl bootstrap | grep Secret | tr -s ' ' | cut -f 2 -d ' ')
+export CONSUL_HTTP_ADDR=127.0.0.1:8500
 
 echo
 echo Setting up env file at $(pwd)/token.source...
@@ -38,25 +39,27 @@ echo Setting Tokens in ENV for docker-compose and setting KeyValues for consul-t
 stuff="$(for token in $(jq -r '.resources[].instances[].attributes.accessor_id' terraform.tfstate | grep -v null); \
   do curl -s --request GET  --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" http://$CONSUL_HTTP_ADDR/v1/acl/token/$token; \
   done | jq -r '. | select(.Description | startswith("CONSUL_")) | "\(.Description)=\(.SecretID)" ')"
-echo $stuff
 for s in $stuff; do
 	NAME="$(echo "$s" | cut -d '=' -f 1)"
 	TOKEN="$(echo "$s" | cut -d '=' -f 2)"
 	echo export $NAME=$TOKEN >> ../../token.source
 	export $s
-	curl -s --request PUT --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" --data $TOKEN http://$CONSUL_HTTP_ADDR/v1/kv/$NAME
+	curl -s --request PUT --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" --data $TOKEN http://$CONSUL_HTTP_ADDR/v1/kv/$NAME > /dev/null 
 done
 
 echo
 echo Running consul-template to populate configuration files 
-echo $CONSUL_HTTP_TOKEN
 cd ../../config/shared
+echo Working template directly is $(pwd)
+echo Templates:
+ls -la *.tpl
 for template in $(ls *.tpl | cut -f 1 -d '.'); do consul-template -template "$template.tpl:$template.json" -once; done
 cd ../..
 
 echo
 echo Bringing up DC2...
 docker-compose up -d dc2-consul-server1 dc2-consul-server2 dc2-consul-server3 
+echo Pausing for Cluster to come up...
 sleep 20
 
 echo
@@ -78,12 +81,24 @@ echo
 echo Writing Mesh Gateway config...
 consul config write proxy-defaults.hcl
 echo
-echo Writing ANY-/>ANY intention.  You should perhaps change this...
+echo Writing ANY:ANY intention.  You should perhaps change this...
 consul intention create "/*" "/*"
 echo Starting remaining services
 docker-compose up -d
 
 
+echo 
+echo 
+echo DONE!!!
+echo
+echo **********************************************************************
+echo
 echo Clusters are up! Add a license before it dies!
 echo
-echo source ./token.source to set ENV variables
+echo source ./token.source to set all ENV variables
+echo Bootstrap Token: $CONSUL_HTTP_TOKEN
+echo
+echo dc1-consul-server1 http://127.0.0.1:8500
+echo 
+echo Dashboard via Ingress GW http://127.0.0.1:8080
+
