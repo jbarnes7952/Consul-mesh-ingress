@@ -1,3 +1,7 @@
+source token.source
+cd terraform 
+terraform destroy 
+cd ..
 docker-compose down
 rm -rf data
 

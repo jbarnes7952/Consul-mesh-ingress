@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Check dependencies
+if ! command -v consul-template 
+then
+	echo "consul-template not installed"
+else
+	echo "consul-template installed.."
+fi
+	
+
+
 echo
 echo Building Consul-Envoy image...
 docker build -t consul-envoy ./dkr-consul-envoy
@@ -23,14 +33,8 @@ echo export CONSUL_HTTP_TOKEN=$CONSUL_HTTP_TOKEN > ./token.source
 echo CONSUL_HTTP_TOKEN set to $CONSUL_HTTP_TOKEN
 
 echo
-echo Creating Policies...
-cd ./terraform/policies
-terraform init
-terraform apply -auto-approve
-
-echo
-echo Creating Tokens...
-cd ../tokens
+echo Creating Policies and Tokens...
+cd terraform
 terraform init
 terraform apply -auto-approve
 
@@ -42,14 +46,14 @@ stuff="$(for token in $(jq -r '.resources[].instances[].attributes.accessor_id' 
 for s in $stuff; do
 	NAME="$(echo "$s" | cut -d '=' -f 1)"
 	TOKEN="$(echo "$s" | cut -d '=' -f 2)"
-	echo export $NAME=$TOKEN >> ../../token.source
+	echo export $NAME=$TOKEN >> ../token.source
 	export $s
 	curl -s --request PUT --header "X-Consul-Token: $CONSUL_HTTP_TOKEN" --data $TOKEN http://$CONSUL_HTTP_ADDR/v1/kv/$NAME > /dev/null 
 done
 
 echo
 echo Running consul-template to populate configuration files 
-cd ../../config/shared
+cd ../config/shared
 echo Working template directly is $(pwd)
 echo Templates:
 ls -la *.tpl
@@ -70,19 +74,7 @@ docker-compose up -d dc2-consul-server1 dc2-consul-server2 dc2-consul-server3
 echo 
 echo Pausing for Cluster to come up...
 sleep 20 
-echo
 
-echo
-echo Writing Ingress Gateway config...
-consul config write ingress-gateway.hcl
-echo
-
-echo
-echo Writing Mesh Gateway config...
-consul config write proxy-defaults.hcl
-echo
-echo Writing ANY:ANY intention.  You should perhaps change this...
-consul intention create "/*" "/*"
 echo Starting remaining services
 docker-compose up -d
 
@@ -91,7 +83,7 @@ echo
 echo 
 echo DONE!!!
 echo
-echo **********************************************************************
+echo "**********************************************************************" 
 echo
 echo Clusters are up! Add a license before it dies!
 echo

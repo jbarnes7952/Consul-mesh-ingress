@@ -1,6 +1,6 @@
 {
-  "acl_agent_token": "bd05a46e-7d14-908f-5adf-ffa6973e3e92",
-  "acl_replication_token": "42f68b52-ccb5-31f5-9e3c-3e0f4b9e110b",
+  "acl_agent_token": "9fc38950-c278-702c-0196-92a950caed68",
+  "acl_replication_token": "96921786-b13c-cf66-d178-aebb3a96fadb",
   "bootstrap_expect": 3,
   "bind_addr": "0.0.0.0",
   "client_addr": "0.0.0.0",
